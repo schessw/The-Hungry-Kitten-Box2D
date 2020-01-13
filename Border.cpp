@@ -6,9 +6,9 @@ Border::Border(b2World& world, sf::Vector2f size, sf::Vector2f position)
 {
 	border_ = sf::RectangleShape(size);
 	border_.setOrigin(sf::Vector2f(size.x / 2, size.y / 2));
-	border_.setFillColor(sf::Color(0, 0, 0, 255));
+	border_.setFillColor(sf::Color(0, 0, 0, 0));
 	border_.setOutlineThickness(0);
-	border_.setOutlineColor(sf::Color(0, 0, 0, 255));
+	border_.setOutlineColor(sf::Color(0, 0, 0, 0));
 	
 	bodyDef_.position = b2Vec2(position.x/PIXEL_PER_METER, position.y/PIXEL_PER_METER);
 	bodyDef_.type = b2_staticBody;
@@ -18,9 +18,10 @@ Border::Border(b2World& world, sf::Vector2f size, sf::Vector2f position)
 	bodyFixtureDef_.shape = &bodyShape_;
 	bodyFixtureDef_.density = 1.0f;
 	bodyFixtureDef_.friction = 0.5f;
-
+	
 	body_ = world.CreateBody(&bodyDef_);
 	body_->CreateFixture(&bodyFixtureDef_);
+	body_->SetUserData(data);
 }
 
 void Border::update()

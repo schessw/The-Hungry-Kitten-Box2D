@@ -1,6 +1,7 @@
 #include <SFML/Graphics.hpp>
 #include <Box2D/Box2D.h>
 #include <iostream>
+#include <string>
 
 class GameCharacter
 {
@@ -11,6 +12,12 @@ class GameCharacter
 	b2BodyDef characterBodyDef_;
 	b2PolygonShape characterBodyShape_;
 	b2FixtureDef characterBodyFixtureDef_;
+	struct bodyUserData {
+		std::string entityType = "cat";
+		bool isCollided = false;
+		bool isCollected = false;
+	};
+	bodyUserData* data = new bodyUserData;
 
  public:
 	GameCharacter(b2World& world, sf::Vector2f pos);

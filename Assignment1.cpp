@@ -1,14 +1,18 @@
 #include <SFML/Graphics.hpp>
+#include <SFML/Audio.hpp>
 #include <Box2D/Box2D.h>
 #include <iostream>
 
 #include <vector>
 #include <stdlib.h>     /* srand, rand */
 #include <time.h>       /* time */
+#include <iomanip>
+#include <sstream>
 
 #include "Border.h"
 #include "GameObject.h"
 #include "GameCharacter.h"
+#include "GameContactListener.h"
 
 // Function to load font from file
 sf::Font loadFont(const std::string& fontFilename = "resources/BurbankBigCondensedBlack.otf")
@@ -30,15 +34,11 @@ sf::Font loadFont(const std::string& fontFilename = "resources/BurbankBigCondens
 int main()
 {
 	// Timer for fixed update
-	// COPYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY //
-	float fixedTimeStep = 0.02f; // 50 times per second
+	float fixedTimeStep = 1.0f / 50.0f; // 50fps
 	sf::Clock fixedUpdateClock;
 	sf::Clock objectClock;
 	float timeElapsedSinceLastFrame = 0;
 	srand (time(NULL));
-	
-	
-	
 	
 	
 	// Create game background
@@ -52,19 +52,37 @@ int main()
 	game_background.setTexture(background_texture);
 	
 	
+	// Create game music
+	sf::Music music;
+	if (!music.openFromFile("resources/PimPoyPocket.wav"))
+	{
+		std::cout << "Unable to load game music!" << std::endl;
+	}
+	
+	music.play();
+	music.setLoop(true);
 	
 	
+	// Create sound effect
+	sf::SoundBuffer buffer1;
+	if (!buffer1.loadFromFile("resources/grab.wav"))
+        return -1;
+
+	sf::Sound soundEffect1;
+	soundEffect1.setBuffer(buffer1);
 	
-	
-	
-	
-	
+	sf::SoundBuffer buffer2;
+	if (!buffer2.loadFromFile("resources/destroy.wav"))
+        return -1;
+
+	sf::Sound soundEffect2;
+	soundEffect2.setBuffer(buffer2);
 	
 	
 	// Window properties
 	int game_width = 800; 
 	int game_height = 582;
-	int borderThickness = 20;
+	int borderThickness = 12;
 	sf::RenderWindow window(sf::VideoMode(game_width, game_height), 
 							"Assignment 1 - Yoong Shen Wei");
 	window.setVerticalSyncEnabled(true);
@@ -72,13 +90,14 @@ int main()
 	
 	// Text declaration
 	sf::Font font = loadFont();
-	sf::Text life_label("", font, 36);
+	sf::Text level_label("", font, 36);
 	sf::Text score_label("", font, 36);
 	sf::Text time_label("", font, 36);
+	sf::Text game_over_label("", font, 48);
 	
 	// Set properties for Time Label
-	life_label.setPosition(20, 15);
-	life_label.setFillColor(sf::Color::Black);
+	level_label.setPosition(20, 15);
+	level_label.setFillColor(sf::Color::Black);
 	
 	// Set properties for Score Label
 	score_label.setPosition(20, 55);
@@ -90,8 +109,10 @@ int main()
 	
 	// Declare game properties
 	int game_score = 0;
-	int remaining_life = 5;
-	int countdown = 10;
+	int min_score = 50;
+	int combo = 1;
+	int level = 1;
+	float countdown = 10.00; 
 	
 	// Game clock 
 	sf::Clock game_clock;
@@ -102,6 +123,10 @@ int main()
 	// Declare Box2D world configuration
 	b2Vec2 gravity(0.0f, 9.81f);
 	b2World world(gravity);
+	
+	// Set contact listener to detect collision
+	GameContactListener gameContactListenerInstance;
+	world.SetContactListener(&gameContactListenerInstance);
 	
 	// Define border
 	sf::Vector2f horizontalBorderSize(game_width, borderThickness);
@@ -119,95 +144,138 @@ int main()
 	// Define a character
 	int character_height = 133;
 	GameCharacter character(world, sf::Vector2f(game_width / 2, game_height - borderThickness - character_height/2));
-	int characterDirection = 0;  // 0 is left, 1 is right
 	
 	// Game object properties
-	std::vector<GameObject> objList;
-	bool leftMousePressed = false;
+	std::vector<GameObject*> objList;
+	std::vector<GameObject*> body_to_remove;
+	bool leftKeyPressed = false;
+	bool rightKeyPressed = false;
+	bool upKeyPressed = false;
+	int previousKey = 0; // 0 is left, 1 is right
+	float velocity = 5.0f;
 	
 	while (window.isOpen())
 	{	
 		sf::Event event;
+		
 		while (window.pollEvent(event));
 		{
-			switch (event.type)
+			if (event.type == sf::Event::Closed)
+                window.close();
+		}
+		
+		// Key movement to left
+		if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::A))
+		{
+			if(!leftKeyPressed)
 			{
-				case sf::Event::Closed: 
+				if(previousKey == 0)
 				{
-					window.close();
-					break;
+					// move character to left
+					character.getBody().SetLinearVelocity(b2Vec2(-velocity, 0.0f));
+					leftKeyPressed = true;
+					previousKey = 0;
 				}
-				case sf::Event::KeyPressed:
+				else 
 				{
-					break;
+					velocity = 5.0f;  // change direction, so reset
+					character.getBody().SetLinearVelocity(b2Vec2(-velocity, 0.0f));
+					leftKeyPressed = true;
+					previousKey = 0;					
 				}
-				case sf::Event::Resized:
-				{
-					sf::FloatRect visibleArea(0, 0, event.size.width, event.size.height);
-					window.setView(sf::View(visibleArea));
-				}
+				velocity = velocity + 5;
 			}
 		}
-		
-		
-		if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Left))
+		else 
 		{
-			// move character to left
-			character.getBody().SetLinearVelocity(b2Vec2(-5.0f, 0.0f));
-			characterDirection = 0;
-			
-		}
-		else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Right))
-		{
-			// move character to right
-			character.getBody().SetLinearVelocity(b2Vec2(5.0f, 0.0f));
-			characterDirection = 1;
-			// https://bit.ly/35jWnKW
-		}
-		else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Up))
-		{
-			// move character to up
-			character.getBody().SetLinearVelocity(b2Vec2(0.0f, 0.0f));
-			// https://bit.ly/35jWnKW
+			leftKeyPressed = false;
 		}
 		
-		
-		/*
+		// Key movement to right
+		if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::D))
+		{	
+			if(!rightKeyPressed)
+			{
+				if(previousKey == 1)
+				{
+					// move character to right
+					character.getBody().SetLinearVelocity(b2Vec2(velocity, 0.0f));
+					rightKeyPressed = true;
+					previousKey = 1;
+				}
+				else 
+				{
+					velocity = 5.0f;  // change direction, so reset
+					character.getBody().SetLinearVelocity(b2Vec2(velocity, 0.0f));
+					rightKeyPressed = true;
+					previousKey = 1;					
+				}
+				velocity = velocity + 5;
+			}
+		}
+		else 
+			rightKeyPressed = false;
+
+
 		if (true)
 		{
 			sf::Vector2f mouse_pos = sf::Vector2f(sf::Mouse::getPosition(window));
 			//character.moveCharacter(sf::Vector2f(mouse_pos.x, game_height-78-20));
 		}
-		*/
 		
 		
-		// Update game time
-		sf::Time elapsed_game_time = game_clock.getElapsedTime();
+		// Update object time
 		sf::Time elapsed_obj_drop_time = obj_drop_clock.getElapsedTime();
-		
 		float obj_time = elapsed_obj_drop_time.asSeconds();
-		float game_time = elapsed_game_time.asSeconds();
-		// std::cout << obj_time << std::endl;
 		
 		// increase the difficulty every 10 seconds!
 		if (obj_time > next_difficulty_time)
 		{
-			obj_drop_interval = obj_drop_interval * 0.9;
-			next_difficulty_time = next_difficulty_time + 10;
-			std::cout << "drop time: " << next_difficulty_time << std::endl;
-			std::cout << "interval: " << obj_drop_interval << std::endl;
+			if(game_score >= min_score)
+			{
+				// update new difficulty details
+				game_clock.restart();
+				level = level + 1;
+				min_score = min_score * 2;
+				
+				obj_drop_interval = obj_drop_interval * 0.9;
+				next_difficulty_time = next_difficulty_time + 10;
+				std::cout << "drop time: " << next_difficulty_time << std::endl;
+				std::cout << "interval: " << obj_drop_interval << std::endl;
+			}
+			else
+			{
+				//window.close();
+				/*
+				if(window.waitEvent(event))
+				{
+					// Key movement to right
+					if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Enter))
+					{	
+						window.close();
+					}
+				}
+				*/
+				
+	
+				// Set properties for Time Label	
+				game_over_label.setFillColor(sf::Color::Black);
+				game_over_label.setString("Game Over!!!");
+				game_over_label.setPosition(300, 260);
+				//window.draw(game_over_label);
+			}
 		}
+		
+		// Update game time
+		sf::Time elapsed_game_time = game_clock.getElapsedTime();
+		float game_time = elapsed_game_time.asSeconds();
 		
 		// drop the object if the time interval is reached
 		if(objectClock.getElapsedTime().asSeconds() >= obj_drop_interval)
 		{
-			sf::Vector2f pos = sf::Vector2f(rand() % 750 + 25, game_height * 0.1);
-			GameObject r(world, pos);
-			std::cout << pos.x << std::endl;
-			std::cout << pos.y << std::endl;
-			objList.push_back(r);
+			sf::Vector2f pos = sf::Vector2f(rand() % 700 + 80, game_height * 0.15);
+			objList.push_back(new GameObject(world, pos));
 			objectClock.restart();
-			std::cout << "Object dropped!!" << std::endl;
 		}
 		
 		
@@ -224,53 +292,75 @@ int main()
                    );
 
 			
-			// update that requires physics
+			// update body that requires physics
 			character.update();
 			topBorder.update();
 			bottomBorder.update();
 			leftBorder.update();
 			rightBorder.update();
 			
+			// detect collision and update the score
 			for(int i = 0; i < objList.size(); i++)
 			{
-				objList[i].update();
+				std::string condition = objList[i]->update();
+				
+				if(condition == "score")
+				{
+					std::cout << "you scored!" << std::endl;
+					world.DestroyBody(objList[i]->getBody());
+					objList.erase(objList.begin() + i);
+					game_score = game_score + 10*(level)*(combo++);
+					soundEffect1.play();
+				}
+				else if(condition == "destroy")
+				{
+					std::cout << "you lose a life!" << std::endl;
+					world.DestroyBody(objList[i]->getBody());
+					objList.erase(objList.begin() + i);
+					combo = 1;
+					soundEffect2.play();
+				}
 			}
+			
+			//
 
 			// timeElapsedSinceLastFrame can be higher than fixedTimeStep,
 			// so we deduct timeElapsedSinceLastFrame with fixedTimeStep
 			timeElapsedSinceLastFrame -= fixedTimeStep;
 		}
 		
-		
-		
-		
-		
-		
-		
-	
+		window.setActive();
 		window.draw(game_background);
-		life_label.setString("Remaining life: " + std::to_string(remaining_life));
+		level_label.setString("Level " + std::to_string(level) + ", Min score: " + std::to_string(min_score));
 		score_label.setString("Score: " + std::to_string(game_score));
-		time_label.setString("Time remaining: " + std::to_string(game_time));
+		
+		std::stringstream stream;
+		stream << std::fixed << std::setprecision(2) << countdown - game_time;
+		std::string time_remaining = stream.str();
+		time_label.setString("Time remaining: " + time_remaining);
+		
+		if(countdown - game_time < -1.0)
+		{
+			window.close();
+		}
 		
 		window.draw(topBorder.getBorder());
 		window.draw(bottomBorder.getBorder());
 		window.draw(leftBorder.getBorder());
 		window.draw(rightBorder.getBorder());
 		
-		window.draw(life_label);
+		window.draw(level_label);
 		window.draw(score_label);
 		window.draw(time_label);
 		window.draw(character.getCharacter());
+		window.draw(game_over_label);
 		
 		for(int i = 0; i < objList.size(); i++)
 		{
-			window.draw(objList[i].getShape());
+			window.draw(objList[i]->getShape());
 		}
 		
-		world.DrawDebugData();
 		window.display();
-		
 	}
 	
 	return 0;

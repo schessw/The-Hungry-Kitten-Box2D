@@ -25,17 +25,17 @@ GameCharacter::GameCharacter(b2World& world, sf::Vector2f pos)
 	characterBodyDef_.type = b2_dynamicBody;
 	characterBodyDef_.position.Set(pos.x / PIXEL_PER_METER, pos.y / PIXEL_PER_METER);
 	
-	
 	// define object shape
 	characterBodyShape_.SetAsBox((character_width / 2)/ PIXEL_PER_METER, (character_height / 2) / PIXEL_PER_METER);
 	
 	characterBodyFixtureDef_.shape = &characterBodyShape_;
-	characterBodyFixtureDef_.density = 0.3f;
+	characterBodyFixtureDef_.density = 0.25f;
 	characterBodyFixtureDef_.friction = 0.0f;
 	
 	characterBody_ = world.CreateBody(&characterBodyDef_);
 	characterBody_->CreateFixture(&characterBodyFixtureDef_);
-	std::cout << "Mass: " << characterBody_->GetMass() << std::endl;
+	characterBody_->SetUserData(data);
+	//std::cout << "Mass: " << characterBody_->GetMass() << std::endl;
 }
 
 void GameCharacter::update()
